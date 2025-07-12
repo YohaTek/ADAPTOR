@@ -1,4 +1,4 @@
-# ADAPTOR
+# Network-Aware Resource Scheduling in Fog/Edge Computing for Cyber-Physical Systems
 
 ### **Action Plan for Phase 1: Literature Review**
 
