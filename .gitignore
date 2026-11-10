@@ -1,0 +1,21 @@
+# OS junk
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python bytecode and virtual environments
+# (the action plan asks for Python helpers such as topologies and agents)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
