@@ -1,4 +1,81 @@
-# Network-Aware Resource Scheduling in Fog/Edge Computing for Cyber-Physical Systems
+# ADAPTOR — Network-Aware Resource Scheduling in Fog/Edge Computing for Cyber-Physical Systems
+
+Planning repository for a Master's thesis project: a software-defined networking
+(SDN) approach to placing tasks in fog/edge environments, where the scheduler
+co-optimises **compute load** and **network state** instead of looking at CPU and
+memory alone.
+
+> **Status:** planning. This repository contains the project plan and schedule
+> tracker only — the Mininet topologies, Ryu controller and experiment scripts
+> described below are built in a separate working directory (`~/thesis_project`
+> in the plan).
+
+## The problem
+
+Classic schedulers (Kubernetes default, YARN, Slurm) are network-agnostic: they
+place work by compute load and ignore latency, bandwidth and path congestion.
+For cyber-physical and edge workloads that mix bulk data transfer with
+low-latency control traffic, a compute-first placement can send a job down a
+slow path even when a better-suited host is one hop away. ADAPTOR studies a
+controller that keeps a live model of the network and folds that model into the
+placement decision.
+
+## Research questions
+
+The proposal defines four research questions; the action plan elaborates three
+of them in detail:
+
+| RQ | Question (as framed in the plan) | Where it is addressed |
+| :--- | :--- | :--- |
+| RQ1 | **Network state abstraction** — how to get a usable view of the network without overwhelming it | Phase 3 (topology discovery), Phase 4 (latency probing) |
+| RQ2 | **Unified cost function** — how to combine compute and network metrics into one comparable score | Phase 4 |
+| RQ3 | **Control plane logic** — what the controller does with that state to place a task | Phase 4 |
+| RQ4 | Defined in the thesis proposal; refined during Phase 1 | Phase 1 |
+
+## Repository layout
+
+| Path | Contents |
+| :--- | :--- |
+| `README.md` | This overview plus the full six-phase action plan |
+| `docs/project-timeline.html` | Self-contained interactive Gantt tracker (Mermaid) with a task checklist and progress bar |
+| `docs/project-timeline.png` | Static 3840×2959 snapshot of the tracker |
+
+There is no build step. To use the tracker, open `docs/project-timeline.html` in
+a browser — it loads Mermaid from a CDN, so it needs network access. Ticking a
+task fills the corresponding Gantt bar and updates the progress bar.
+
+> **Caveat:** checklist progress is held in memory only. Reloading the page or
+> closing the tab resets every tick. Treat the PNG as the durable snapshot, or
+> add `localStorage` persistence before relying on the tracker day to day.
+
+## Technology stack the plan builds toward
+
+- **Emulation:** VirtualBox + Ubuntu 22.04 LTS, Mininet (with `TCLink` for
+  bandwidth/delay parameters)
+- **Control plane:** Ryu (Python) with the built-in WSGI REST API, NetworkX for
+  the topology graph and Dijkstra path selection
+- **Host agents:** Flask + `psutil` exposing per-host CPU load over HTTP
+- **Analysis:** Jupyter, `pandas`, `matplotlib`/`seaborn`
+- **References:** Zotero or Mendeley from Phase 1 onward
+
+## Roadmap
+
+The schedule in `docs/project-timeline.html` runs 20 weeks from 2025-07-12:
+
+| Phase | Focus | Key deliverable |
+| :--- | :--- | :--- |
+| 1 | Literature review (network-aware scheduling, traffic engineering, SDN in edge/fog) | Annotated bibliography, state-of-the-art summary, draft Chapters 1–2 |
+| 2 | Simulation environment (VM, Mininet, Ryu) | Full-stack validation: `pingall` at 0% loss through a remote controller |
+| 3 | Controller and topology development | Custom Ryu app with topology discovery, network graph and a scheduler stub behind a REST endpoint |
+| 4 | Scheduling logic | Baseline (compute-only) and network-aware schedulers behind one unified cost function |
+| 5 | Experimentation and analysis | Automated runner, CSV results, aggregate statistics and plots |
+| 6 | Thesis writing | Complete, proofread draft submitted for review |
+
+## Detailed action plan
+
+The sections below are the working plan, phase by phase, with objectives,
+step-by-step actions, success criteria and code sketches. They are kept in
+order so the plan reads top to bottom, and each phase ends at a milestone.
 
 ### **Action Plan for Phase 1: Literature Review**
 
@@ -88,7 +165,7 @@ This provides the architectural pattern for your solution. Your project is essen
     *   **Draft of Thesis Chapter 1 (Introduction) & Chapter 2 (Related Work):** Start writing these chapters now while the information is fresh. It's much easier than trying to write everything at the end.
     *   **A Refined Set of Research Questions:** Based on your reading, you might slightly tweak the wording of the RQs to make them more precise. For example, for RQ2, you might have a clearer idea of what the "cost function" components will be.
 
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 ### **Action Plan for Phase 2: Simulation Environment Setup**
 
@@ -247,7 +324,7 @@ This provides the architectural pattern for your solution. Your project is essen
         ```
 *   **🏆 MILESTONE ACHIEVED:** The `pingall` command reports **0% dropped**. This proves that Mininet handed over control to Ryu, and Ryu correctly installed the necessary flow rules to allow all hosts to communicate.
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 ### **Action Plan for Phase 3: Controller and Topology Development**
 
@@ -270,11 +347,11 @@ First, we'll make our Mininet world more realistic, as described in the proposal
             ```python
             # Before:
             # self.addLink(s3, h1)
-            
+
             # After:
             from mininet.link import TCLink
             # ... inside the build method:
-            self.addLink(s3, h1, cls=TCLink, bw=10, delay='1ms') 
+            self.addLink(s3, h1, cls=TCLink, bw=10, delay='1ms')
             ```
             *(Note: You must specify `cls=TCLink` to use parameters like `bw` and `delay`.)*
     *   **✅ Success Criteria:** You can run `sudo python3 datacenter.py`. Inside Mininet, running `iperf` between two hosts shows a bandwidth close to the limit you set (e.g., ~10 Gb/s). Running `ping` shows a round-trip time reflecting your delay settings (e.g., ~2ms).
@@ -320,7 +397,7 @@ Now we build the controller itself, piece by piece.
             ```python
             # Example using Ryu's built-in web server
             from ryu.app.wsgi import ControllerBase, WSGIApplication, route
-            
+
             class MyRestController(ControllerBase):
                 def __init__(self, req, link, data, **config):
                     super(MyRestController, self).__init__(req, link, data, **config)
@@ -330,12 +407,12 @@ Now we build the controller itself, piece by piece.
                 def schedule_task_handler(self, req, **kwargs):
                     # In a real app, you'd parse the request body
                     # For now, just trigger the scheduler
-                    self.scheduler_app._schedule_task("large_data") 
+                    self.scheduler_app._schedule_task("large_data")
                     return "Scheduling triggered!\n"
             ```
     *   **✅ Success Criteria:** You can run your controller and use a command-line tool like `curl` to send a request to your controller's new API endpoint (`curl -X POST http://localhost:8080/scheduler/schedule_task`). You should see a log message from your `_schedule_task` function stub, confirming that the "brain" can be activated on command.
 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 ### **Action Plan for Phase 4: Implementation of Scheduling Logic**
 
@@ -394,7 +471,7 @@ Now we build the controller itself, piece by piece.
             # At the top of your controller class
             WEIGHT_CPU = 0.6
             WEIGHT_LATENCY = 0.4
-            
+
             # The function
             def _calculate_unified_cost(self, compute_load, path_latency):
                 # Normalize values if necessary (e.g., CPU load 0-100 -> 0-1)
@@ -419,8 +496,8 @@ Now we build the controller itself, piece by piece.
             c. Compare the scores for all hosts and select the one with the *lowest* cost.
             d. Log the decision-making process and the final choice: `[AWARE] Chose host hY with cost Z`.
     *   **✅ Success Criteria:** The function correctly evaluates all possible hosts and selects the one with the best combined compute-network score. You can create a test case where the host with the lowest CPU is *not* chosen because it has a very high-latency path.
-   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-   
+---
+
 ### **Action Plan for Phase 5: Experimentation & Analysis**
 
 **Objective:** To design and execute a series of controlled experiments that quantitatively demonstrate the performance difference between your network-agnostic (Baseline) and network-aware (Proposed) schedulers, using realistic task types and collecting clear performance metrics.
@@ -517,7 +594,7 @@ Now we build the controller itself, piece by piece.
         3.  **Box Plots are excellent:** Create a box plot to show the distribution of ping latencies for the mesh network scenario. This shows not just the average but also the consistency.
         4.  **Label Everything Clearly:** Ensure your plots have titles, labeled axes (with units!), and a clear legend. These plots should be "presentation-ready."
     *   **✅ Success Criteria:** You have a set of 3-5 high-quality, clearly labeled plots that visually and dramatically show the superiority of your network-aware scheduler in the scenarios you designed.
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 ### **Action Plan for Phase 6: Thesis Writing**
 
